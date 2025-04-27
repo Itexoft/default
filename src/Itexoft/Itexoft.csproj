@@ -1,0 +1,54 @@
+﻿<Project Sdk="Itexoft.NET.Sdk/0.0.1">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Library</OutputType>
+        <PackageId>Itexoft</PackageId>
+        <AssemblyName>Itexoft</AssemblyName>
+        <RootNamespace>Itexoft</RootNamespace>
+        <Product>Itexoft Toolkit</Product>
+        <Description>Shared Itexoft toolkit.</Description>
+        <PackageDescription>Shared Itexoft toolkit.</PackageDescription>
+        <PackageProjectUrl>https://github.com/Itexoft/default</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/Itexoft/default</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageLicenseExpression>MPL-2.0-no-copyleft-exception</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <LangVersion>14</LangVersion>
+        <NoWarn>$(NoWarn);NU5128</NoWarn>
+        <GenerateDependencyFile>false</GenerateDependencyFile>
+        <GenerateRuntimeConfigurationFiles>false</GenerateRuntimeConfigurationFiles>
+        <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+        <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <ItexoftPrivateRoot Condition="'$(ItexoftPrivateRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', 'Private'))</ItexoftPrivateRoot>
+        <ItexoftPrivateNativeTargetsPath Condition="'$(ItexoftPrivateNativeTargetsPath)' == ''">$([MSBuild]::NormalizePath('$(ItexoftPrivateRoot)', 'Native', 'Itexoft.Native.targets'))</ItexoftPrivateNativeTargetsPath>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="!Exists('$(ItexoftPrivateNativeTargetsPath)')">
+        <ItexoftHasPrivateNative Condition="'$(ItexoftHasPrivateNative)' == ''">false</ItexoftHasPrivateNative>
+        <ItexoftHasCurrentDesktopManagedBuildPayload Condition="'$(ItexoftHasCurrentDesktopManagedBuildPayload)' == ''">false</ItexoftHasCurrentDesktopManagedBuildPayload>
+        <ItexoftHasFullDesktopNativePayload Condition="'$(ItexoftHasFullDesktopNativePayload)' == ''">false</ItexoftHasFullDesktopNativePayload>
+        <ItexoftHasWasmNativePayload Condition="'$(ItexoftHasWasmNativePayload)' == ''">false</ItexoftHasWasmNativePayload>
+        <ItexoftInnerBuildProperties Condition="'$(ItexoftInnerBuildProperties)' == ''">Configuration=$(Configuration);NoBuild=false;NoRestore=$(NoRestore);SignAssembly=$(SignAssembly);PublicSign=$(PublicSign);AssemblyOriginatorKeyFile=$(AssemblyOriginatorKeyFile);ArtifactsRoot=$(ArtifactsRoot);ItexoftHasPrivateNative=$(ItexoftHasPrivateNative);ItexoftNativePayloadInputRoot=$(ItexoftNativePayloadInputRoot)</ItexoftInnerBuildProperties>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\..\LICENSE.md" Pack="true" PackagePath="" Link="LICENSE.md"/>
+        <None Include="..\..\README.md" Pack="true" PackagePath="" Link="README.md"/>
+        <None Include="..\..\NOTICE.md" Pack="true" PackagePath="" Link="NOTICE.md"/>
+        <None Include="..\..\DONATE.md" Pack="true" PackagePath="" Link="DONATE.md"/>
+    </ItemGroup>
+
+    <Target Name="ItexoftResolveCurrentDesktopNativePayload"
+            Condition="!Exists('$(ItexoftPrivateNativeTargetsPath)')"/>
+
+    <Target Name="ItexoftResolveDesktopNativePayloads"
+            Condition="!Exists('$(ItexoftPrivateNativeTargetsPath)')"/>
+
+    <Target Name="ItexoftResolveWasmNativePayload"
+            Condition="!Exists('$(ItexoftPrivateNativeTargetsPath)')"/>
+
+    <Import Project="Itexoft.targets"/>
+    <Import Project="$(ItexoftPrivateNativeTargetsPath)"
+            Condition="Exists('$(ItexoftPrivateNativeTargetsPath)')"/>
+</Project>

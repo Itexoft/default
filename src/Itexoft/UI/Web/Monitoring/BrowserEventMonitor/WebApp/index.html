@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <title>Browser Event Monitor</title>
+    <link href="./app.css" rel="stylesheet">
+</head>
+<body>
+<div class="monitor-shell">
+    <header class="monitor-tabs" id="tab-strip"></header>
+    <main class="monitor-main">
+        <div class="monitor-empty" id="empty-state">No categories yet</div>
+        <section class="monitor-chart" hidden id="chart-shell">
+            <div class="monitor-chrome">
+                <div class="monitor-status" id="status-badge">Starting</div>
+                <label class="monitor-log-toggle" hidden id="log-toggle">
+                    <input id="log-input" type="checkbox">
+                    <span>log Y</span>
+                </label>
+            </div>
+            <canvas class="monitor-canvas monitor-canvas-base" id="chart-base"></canvas>
+            <canvas class="monitor-canvas monitor-canvas-overlay" id="chart-overlay"></canvas>
+            <div class="monitor-message" hidden id="chart-message"></div>
+            <div class="monitor-tooltip" hidden id="tooltip"></div>
+            <div class="monitor-toast" hidden id="toast"></div>
+            <div class="monitor-popover" hidden id="delete-popover">
+                <div class="monitor-popover-title">Delete category?</div>
+                <div class="monitor-popover-text" id="delete-popover-text"></div>
+                <div class="monitor-popover-actions">
+                    <button class="monitor-popover-button monitor-popover-button-danger" id="delete-confirm"
+                            type="button">Delete
+                    </button>
+                    <button class="monitor-popover-button" id="delete-cancel" type="button">Cancel</button>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+<script src="./app.js" type="module"></script>
+</body>
+</html>

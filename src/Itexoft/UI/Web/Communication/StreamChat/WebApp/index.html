@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <title>Stream Chat</title>
+    <link href="app.css" rel="stylesheet">
+</head>
+<body>
+<div class="chat-page">
+    <div class="chat-shell">
+        <aside class="chat-sidebar-panel">
+            <div class="chat-sidebar-header">
+                <div>
+                    <h1>Stream Chat</h1>
+                    <p>Live chats driven by external streams.</p>
+                </div>
+            </div>
+            <div class="chat-list" id="chat-list"></div>
+        </aside>
+        <main class="chat-main-panel">
+            <header class="chat-header-panel">
+                <div>
+                    <h2 id="chat-title">No active chat</h2>
+                    <p id="chat-subtitle">Add external streams to populate the list.</p>
+                </div>
+                <div class="chat-header-badges">
+                    <div class="connection-status is-connecting" id="connection-status">Connecting</div>
+                    <div class="chat-state-badge" id="chat-state">idle</div>
+                </div>
+            </header>
+            <section class="message-surface">
+                <div class="message-list" id="message-list"></div>
+            </section>
+            <form class="composer-panel" id="composer">
+                <label class="composer-label" for="composer-input">Your message</label>
+                <textarea id="composer-input" placeholder="Press Enter to send. Press Shift+Enter for a new line."
+                          rows="3"></textarea>
+                <div class="composer-actions">
+                    <div class="composer-hint" id="composer-hint">Select a live chat to send a message.</div>
+                    <button id="composer-send" type="submit">Send</button>
+                </div>
+            </form>
+        </main>
+    </div>
+</div>
+<script src="./app.js"></script>
+</body>
+</html>

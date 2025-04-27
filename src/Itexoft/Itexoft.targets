@@ -1,0 +1,121 @@
+<Project>
+    <PropertyGroup>
+        <ItexoftSourceRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))</ItexoftSourceRoot>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(AssemblyName)' == 'Itexoft'">
+        <ItexoftWasmProjectPath Condition="'$(ItexoftWasmProjectPath)' == ''">$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', 'Private', 'Itexoft.Wasm', 'Itexoft.Wasm.csproj'))</ItexoftWasmProjectPath>
+        <ItexoftBrowserPackageTargetFramework Condition="'$(ItexoftBrowserPackageTargetFramework)' == ''">net10.0-browser1.0</ItexoftBrowserPackageTargetFramework>
+        <ItexoftBuildCurrentDesktopNativeCopyRequired Condition="'$(ItexoftBuildCurrentDesktopNativeCopyRequired)' == '' and '$(PublishDir)' == ''">true</ItexoftBuildCurrentDesktopNativeCopyRequired>
+        <ItexoftDesktopPublishRequired Condition="'$(ItexoftDesktopPublishRequired)' == '' and '$(PublishDir)' != ''">true</ItexoftDesktopPublishRequired>
+        <ItexoftPublishWasmVariant Condition="'$(ItexoftPublishWasmVariant)' == '' and '$(PublishDir)' != ''">true</ItexoftPublishWasmVariant>
+        <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);ItexoftPreparePackOutputs;_ItexoftCollectPackOutputs</TargetsForTfmSpecificContentInPackage>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="$(ItexoftSourceRoot)**/*.cs">
+            <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+        </Compile>
+        <Compile Remove="$(ItexoftSourceRoot)bin/**"/>
+        <Compile Remove="$(ItexoftSourceRoot)obj/**"/>
+        <Compile Remove="$(ItexoftSourceRoot)IO/Vfs_/**/*.cs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Include="$(ItexoftSourceRoot)UI/Web/Monitoring/BrowserEventMonitor/WebApp/**/*">
+            <LogicalName>EmbeddedWeb.browser-event-monitor/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="$(ItexoftSourceRoot)UI/Web/Communication/StreamChat/WebApp/**/*">
+            <LogicalName>EmbeddedWeb.stream-chat/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(SignAssembly)' == 'true' or '$(PublicSign)' == 'true'">
+        <Compile Remove="$(ItexoftSourceRoot)Core/InternalsVisibleTo.cs"/>
+    </ItemGroup>
+
+    <Target Name="_ItexoftPrepareDesktopPayloads"
+            BeforeTargets="PrepareForBuild"
+            DependsOnTargets="ItexoftResolveDesktopNativePayloads"
+            Condition="'$(AssemblyName)' == 'Itexoft' and '$(ItexoftDesktopPublishRequired)' == 'true'">
+        <ItemGroup Condition="'$(ItexoftHasFullDesktopNativePayload)' == 'true'">
+            <EmbeddedResource Include="@(ItexoftResolvedDesktopNativePayload->'%(PayloadPath)')">
+                <LogicalName>%(ItexoftResolvedDesktopNativePayload.LogicalName)</LogicalName>
+            </EmbeddedResource>
+        </ItemGroup>
+    </Target>
+
+    <Target Name="_ItexoftAddCurrentDesktopNativeBuildOutputs"
+            BeforeTargets="AssignTargetPaths"
+            DependsOnTargets="ItexoftResolveCurrentDesktopNativePayload"
+            Condition="'$(AssemblyName)' == 'Itexoft' and '$(ItexoftBuildCurrentDesktopNativeCopyRequired)' == 'true' and '$(ItexoftHasPrivateNative)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+        <ItemGroup>
+            <None Include="@(ItexoftResolvedCurrentDesktopNativeFile)"
+                  Condition="'@(ItexoftResolvedCurrentDesktopNativeFile)' != ''">
+                <Link>%(ItexoftResolvedCurrentDesktopNativeFile.TargetFileName)</Link>
+                <TargetPath>%(ItexoftResolvedCurrentDesktopNativeFile.TargetFileName)</TargetPath>
+                <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+                <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+                <Visible>false</Visible>
+            </None>
+        </ItemGroup>
+    </Target>
+
+    <Target Name="_ItexoftPublishWasmVariant"
+            AfterTargets="Publish"
+            DependsOnTargets="ItexoftResolveWasmNativePayload"
+            Condition="'$(AssemblyName)' == 'Itexoft' and '$(ItexoftPublishWasmVariant)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+        <PropertyGroup>
+            <_ItexoftWasmBaseIntermediateOutputPath>$([MSBuild]::NormalizeDirectory('$(BaseIntermediateOutputPath)', 'itexoft-wasm'))</_ItexoftWasmBaseIntermediateOutputPath>
+        </PropertyGroup>
+
+        <MSBuild Projects="$(ItexoftWasmProjectPath)"
+                 Targets="Publish"
+                 RemoveProperties="TargetFramework;TargetFrameworks"
+                 Properties="$(ItexoftInnerBuildProperties);PublishDir=$(PublishDir);BaseIntermediateOutputPath=$(_ItexoftWasmBaseIntermediateOutputPath);ItexoftWasmPublishRequired=true;ItexoftNativePayloadInputRoot=$(ItexoftNativePayloadRoot)"
+                 Condition="'$(ItexoftHasWasmNativePayload)' == 'true'"/>
+    </Target>
+
+    <Target Name="ItexoftPreparePackOutputs"
+            Condition="'$(AssemblyName)' == 'Itexoft' and '$(IsPackable)' == 'true' and '$(IsInnerBuild)' != 'true' and '$(DesignTimeBuild)' != 'true'">
+        <PropertyGroup>
+            <_ItexoftPackStagingRoot>$([MSBuild]::NormalizeDirectory('$(BaseIntermediateOutputPath)', 'itexoft-pack'))</_ItexoftPackStagingRoot>
+            <_ItexoftPackPublishDir>$([MSBuild]::NormalizeDirectory('$(_ItexoftPackStagingRoot)', 'publish'))</_ItexoftPackPublishDir>
+            <_ItexoftPackBaseIntermediateOutputPath>$([MSBuild]::NormalizeDirectory('$(_ItexoftPackStagingRoot)', 'obj'))</_ItexoftPackBaseIntermediateOutputPath>
+            <_ItexoftPackMainAssemblyPath>$([MSBuild]::NormalizePath('$(_ItexoftPackPublishDir)', 'Itexoft.dll'))</_ItexoftPackMainAssemblyPath>
+            <_ItexoftPackWasmAssemblyPath>$([MSBuild]::NormalizePath('$(_ItexoftPackPublishDir)', 'Itexoft.Wasm.dll'))</_ItexoftPackWasmAssemblyPath>
+        </PropertyGroup>
+
+        <Exec Command="rmdir /s /q &quot;$(_ItexoftPackStagingRoot)&quot;"
+              Condition="Exists('$(_ItexoftPackStagingRoot)') and '$(OS)' == 'Windows_NT'"/>
+        <Exec Command="rm -rf &quot;$(_ItexoftPackStagingRoot)&quot;"
+              Condition="Exists('$(_ItexoftPackStagingRoot)') and '$(OS)' != 'Windows_NT'"/>
+
+        <MSBuild Projects="$(MSBuildProjectFullPath)"
+                 Targets="Publish"
+                 RemoveProperties="TargetFramework;TargetFrameworks;IncludeBuildOutput"
+                 Properties="$(ItexoftInnerBuildProperties);PublishDir=$(_ItexoftPackPublishDir);BaseIntermediateOutputPath=$(_ItexoftPackBaseIntermediateOutputPath);ItexoftBuildCurrentDesktopNativeCopyRequired=false;ItexoftDesktopPublishRequired=true;ItexoftPublishWasmVariant=true"/>
+    </Target>
+
+    <Target Name="_ItexoftCollectPackOutputs"
+            Condition="'$(AssemblyName)' == 'Itexoft' and '$(IsPackable)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+        <PropertyGroup>
+            <_ItexoftPackStagingRoot>$([MSBuild]::NormalizeDirectory('$(BaseIntermediateOutputPath)', 'itexoft-pack'))</_ItexoftPackStagingRoot>
+            <_ItexoftPackPublishDir>$([MSBuild]::NormalizeDirectory('$(_ItexoftPackStagingRoot)', 'publish'))</_ItexoftPackPublishDir>
+            <_ItexoftPackBaseIntermediateOutputPath>$([MSBuild]::NormalizeDirectory('$(_ItexoftPackStagingRoot)', 'obj'))</_ItexoftPackBaseIntermediateOutputPath>
+            <_ItexoftPackMainAssemblyPath>$([MSBuild]::NormalizePath('$(_ItexoftPackPublishDir)', 'Itexoft.dll'))</_ItexoftPackMainAssemblyPath>
+            <_ItexoftPackWasmAssemblyPath>$([MSBuild]::NormalizePath('$(_ItexoftPackPublishDir)', 'Itexoft.Wasm.dll'))</_ItexoftPackWasmAssemblyPath>
+        </PropertyGroup>
+
+        <ItemGroup>
+            <TfmSpecificPackageFile Include="$(_ItexoftPackMainAssemblyPath)" PackagePath="lib/net10.0/">
+                <TargetFramework>net10.0</TargetFramework>
+            </TfmSpecificPackageFile>
+            <TfmSpecificPackageFile Include="$(_ItexoftPackWasmAssemblyPath)"
+                                    PackagePath="lib/$(ItexoftBrowserPackageTargetFramework)/"
+                                    Condition="Exists('$(_ItexoftPackWasmAssemblyPath)')">
+                <TargetFramework>$(ItexoftBrowserPackageTargetFramework)</TargetFramework>
+            </TfmSpecificPackageFile>
+        </ItemGroup>
+    </Target>
+</Project>

@@ -1,0 +1,67 @@
+name: CI
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+  workflow_call:
+    outputs:
+      run-id:
+        description: ci run id
+        value: ${{ github.run_id }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pack:
+    name: Pack Itexoft
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Pack
+        env:
+          P12_BASE64: ${{ secrets.P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          ItexoftPrivateNativeTargetsPath: ${{ runner.temp }}/itexoft-private-native.targets
+        run: |
+          set -euo pipefail
+          chmod +x ./pack.sh
+          ./pack.sh
+
+      - name: Locate packages
+        id: pkgs
+        run: |
+          set -euo pipefail
+          files=()
+          while IFS= read -r f; do files+=("$f"); done < <(find "$GITHUB_WORKSPACE/nuget" -maxdepth 1 -type f -name '*.nupkg' -print | sort)
+          if [ "${#files[@]}" -eq 0 ]; then echo "::error::No .nupkg found after ./pack.sh"; exit 1; fi
+          {
+            echo "paths<<EOF"
+            printf "%s\n" "${files[@]}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: itexoft-packages
+          path: ${{ steps.pkgs.outputs.paths }}
+          if-no-files-found: error
+          retention-days: 1
