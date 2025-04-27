@@ -1,0 +1,17 @@
+<Project>
+    <PropertyGroup>
+        <_NativeBinDir>$(MSBuildProjectDirectory)\..\Private\Native\bin\Native</_NativeBinDir>
+        <_NativeName>itexoft-native</_NativeName>
+        <_NativeBinName>Native/Library/$(_NativeName)</_NativeBinName>
+        <_NativeConfiguration>Release</_NativeConfiguration>
+    </PropertyGroup>
+    <ItemGroup>
+        <EmbeddedResource Include="$(_NativeBinDir)Wasm-browser-wasm-$(TargetFramework)-browser-$(_NativeConfiguration)-publish\wwwroot\_framework\$(_NativeName).*.wasm">
+            <Link>$(_NativeBinName).wasm</Link>
+        </EmbeddedResource>
+        <EmbeddedResource Include="$(_NativeBinDir)-*-$(TargetFramework)-$(_NativeConfiguration)-publish\$(_NativeName).*">
+            <_NativeRid>$([System.Text.RegularExpressions.Regex]::Match('%(Identity)', '(?:^|[\\\/])Native-(?&lt;rid&gt;.+?)-$(TargetFramework)-$(_NativeConfiguration)-publish[\\\/]').Groups['rid'].Value)</_NativeRid>
+            <Link>$(_NativeBinName).%(_NativeRid)%(Extension)</Link>
+        </EmbeddedResource>
+    </ItemGroup>
+</Project>

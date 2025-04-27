@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Library</OutputType>
+        <PackageId>Itexoft</PackageId>
+        <AssemblyName>Itexoft</AssemblyName>
+        <RootNamespace>Itexoft</RootNamespace>
+        <Product>Itexoft Toolkit</Product>
+        <Description>Shared Itexoft toolkit.</Description>
+        <PackageDescription>Shared Itexoft toolkit.</PackageDescription>
+        <PackageProjectUrl>https://github.com/Itexoft/default</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/Itexoft/default</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageLicenseExpression>MPL-2.0-no-copyleft-exception</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <LangVersion>14</LangVersion>
+        <IconUrl>https://avatars.githubusercontent.com/u/179823548?s=400&amp;v=4</IconUrl>
+        <GenerateDependencyFile>false</GenerateDependencyFile>
+        <GenerateRuntimeConfigurationFiles>false</GenerateRuntimeConfigurationFiles>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Remove="EmbeddedWeb\**" />
+    </ItemGroup>
+    <ItemGroup>
+        <None Include="..\..\LICENSE.md" Pack="true" PackagePath="" Link="LICENSE.md"/>
+        <None Include="..\..\README.md" Pack="true" PackagePath="" Link="README.md"/>
+        <None Include="..\..\NOTICE.md" Pack="true" PackagePath="" Link="NOTICE.md"/>
+        <None Include="..\..\DONATE.md" Pack="true" PackagePath="" Link="DONATE.md"/>
+    </ItemGroup>
+    
+    <ItemGroup>
+        <Compile Remove="EmbeddedWeb\**" />
+    </ItemGroup>
+    <ItemGroup>
+        <EmbeddedResource Remove="EmbeddedWeb\**" />
+    </ItemGroup>
+    <Import Project="Native/Library/Native.props" />
+</Project>

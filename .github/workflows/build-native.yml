@@ -1,0 +1,296 @@
+name: Build Native
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-native-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NATIVE_ROOT: src/Private/Native
+  NATIVE_BIN: src/Private/Native/bin
+  NATIVE_NAME: itexoft-native
+  APT_CACHE: ${{ github.workspace }}/.cache/apt
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: osx-arm64
+            os: macos-14
+            rid: osx-arm64
+            project: Native.csproj
+            kind: native
+            ext: dylib
+          - name: linux-x64
+            os: ubuntu-24.04
+            rid: linux-x64
+            project: Native.csproj
+            kind: native
+            ext: so
+          - name: linux-arm64
+            os: ubuntu-24.04
+            rid: linux-arm64
+            project: Native.csproj
+            kind: native
+            ext: so
+          - name: win-x64
+            os: windows-2022
+            rid: win-x64
+            project: Native.csproj
+            kind: native
+            ext: dll
+          - name: browser-wasm
+            os: macos-14
+            rid: browser-wasm
+            project: NativeWasm.csproj
+            kind: wasm
+            ext: wasm
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      - name: Configure private submodule
+        env:
+          PRIVATE_DEPLOY_KEY: ${{ secrets.PRIVATE_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          if [ "${RUNNER_OS:-}" != "Windows" ]; then
+            chmod 700 ~/.ssh
+          fi
+          printf '%s\n' "$PRIVATE_DEPLOY_KEY" > ~/.ssh/id_ed25519
+          if [ "${RUNNER_OS:-}" != "Windows" ]; then
+            chmod 600 ~/.ssh/id_ed25519
+          fi
+          ssh-keyscan -t rsa,ed25519 github.com >> ~/.ssh/known_hosts
+          git config submodule.src/Private.url git@github.com:Itexoft/private.git
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            git submodule update --init --recursive src/Private
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Dotnet info
+        id: dotnet-info
+        run: |
+          set -euo pipefail
+          dotnet_version="$(dotnet --version)"
+          workload_version="$(dotnet --info | awk -F': ' '/Workload version/ {print $2; exit}')"
+          if [ -z "${workload_version:-}" ]; then
+            workload_version="unknown"
+          fi
+          echo "dotnet_version=$dotnet_version" >> "$GITHUB_OUTPUT"
+          echo "workload_version=$workload_version" >> "$GITHUB_OUTPUT"
+
+      - name: Cache apt
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.APT_CACHE }}
+          key: apt-${{ runner.os }}-${{ matrix.rid }}-${{ hashFiles('.github/workflows/build-native.yml') }}
+          enableCrossOsArchive: true
+
+      - name: Install toolchain (linux)
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: |
+          set -euo pipefail
+          cache_dir="$APT_CACHE"
+          sudo mkdir -p "$cache_dir/archives"
+          sudo chmod -R a+rX "$cache_dir"
+          sudo apt-get -o Dir::Cache::archives="$cache_dir/archives" -o Dir::Cache::pkgcache="$cache_dir/pkgcache.bin" update
+          pkgs=(clang lld llvm zlib1g-dev)
+          if [ "${{ matrix.rid }}" = "linux-arm64" ]; then
+            pkgs+=(binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross)
+          fi
+          sudo apt-get -o Dir::Cache::archives="$cache_dir/archives" -o Dir::Cache::pkgcache="$cache_dir/pkgcache.bin" install -y "${pkgs[@]}"
+          sudo chown -R "$USER":"$USER" "$cache_dir"
+          if [ "${{ matrix.rid }}" = "linux-arm64" ]; then
+            mkdir -p "$HOME/bin"
+            ln -sf "$(command -v aarch64-linux-gnu-ld)" "$HOME/bin/ld.bfd"
+            echo "$HOME/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Install toolchain (macOS)
+        if: ${{ startsWith(matrix.os, 'macos') }}
+        run: |
+          set -euo pipefail
+          xcode-select -p
+
+      - name: Cache wasm workload
+        if: ${{ matrix.kind == 'wasm' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.dotnet
+            ~/.nuget/packages
+          key: wasm-${{ runner.os }}-${{ steps.dotnet-info.outputs.dotnet_version }}-${{ steps.dotnet-info.outputs.workload_version }}
+
+      - name: Install wasm workload
+        if: ${{ matrix.kind == 'wasm' }}
+        run: |
+          set -euo pipefail
+          if dotnet workload list | grep -q '^wasm-tools'; then
+            exit 0
+          fi
+          dotnet workload install wasm-tools
+
+      - name: Clean output
+        run: |
+          set -euo pipefail
+          rm -rf "$NATIVE_BIN"
+          mkdir -p "$NATIVE_BIN"
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          dotnet build "$NATIVE_ROOT/${{ matrix.project }}" -c Release -r "${{ matrix.rid }}" /p:StripSymbols=true
+
+      - name: Publish
+        run: |
+          set -euo pipefail
+          dotnet publish "$NATIVE_ROOT/${{ matrix.project }}" -c Release -r "${{ matrix.rid }}" --no-build /p:StripSymbols=true
+
+      - name: Locate output
+        id: out
+        run: |
+          set -euo pipefail
+          native_name="$NATIVE_NAME"
+          bin_root="$NATIVE_BIN"
+          cache_dir="native-cache/${{ matrix.rid }}"
+          rm -rf "$cache_dir"
+          mkdir -p "$cache_dir"
+          if [ "${{ matrix.kind }}" = "wasm" ]; then
+            file="$(find "$bin_root" -type f -path "*/wwwroot/_framework/${native_name}*.wasm" | head -n 1)"
+            bundle_file="$cache_dir/${native_name}.wasm"
+          else
+            file="$(find "$bin_root" -type f \( -name "${native_name}*.${{ matrix.ext }}" -o -name "lib${native_name}*.${{ matrix.ext }}" \) | head -n 1)"
+            bundle_file="$cache_dir/${native_name}.${{ matrix.rid }}.${{ matrix.ext }}"
+          fi
+          if [ -z "$file" ] || [ ! -f "$file" ]; then
+            echo "::error::Native output not found for ${{ matrix.rid }}"
+            exit 1
+          fi
+          cp "$file" "$bundle_file"
+          echo "file=$bundle_file" >> "$GITHUB_OUTPUT"
+          echo "cache_dir=$cache_dir" >> "$GITHUB_OUTPUT"
+
+      - name: Sign output
+        env:
+          P12_BASE64: ${{ secrets.P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${P12_BASE64-}" ]; then
+            echo "::error::P12_BASE64 is required for signing"
+            exit 1
+          fi
+          tmp="$(mktemp -d)"
+          curl -fsSL "https://raw.githubusercontent.com/Itexoft/devops/refs/heads/master/gh-pick.sh" -o "$tmp/gh-pick.sh"
+          chmod +x "$tmp/gh-pick.sh"
+          sign_tool="$("$tmp/gh-pick.sh" "@master" "lib/sign-tool.sh")"
+          cert_input="$tmp/cert.input"
+          printf '%s' "$P12_BASE64" > "$cert_input"
+          file="${{ steps.out.outputs.file }}"
+          if [ "${RUNNER_OS:-}" = "Windows" ]; then
+            file="$(cygpath -u "$file")"
+          fi
+          if [ -n "${P12_PASSWORD-}" ]; then
+            "$sign_tool" "$cert_input" "$file" "--password=$P12_PASSWORD"
+          else
+            "$sign_tool" "$cert_input" "$file"
+          fi
+
+      - name: Cache native output
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.out.outputs.cache_dir }}
+          key: native-${{ github.run_id }}-${{ matrix.rid }}
+          enableCrossOsArchive: true
+
+  bundle:
+    name: Bundle
+    runs-on: ubuntu-24.04
+    needs: build
+    defaults:
+      run:
+        shell: bash
+    env:
+      BUNDLE_ROOT: bundles
+    steps:
+      - name: Restore wasm cache
+        uses: actions/cache/restore@v4
+        with:
+          path: native-cache/browser-wasm
+          key: native-${{ github.run_id }}-browser-wasm
+          enableCrossOsArchive: true
+
+      - name: Restore osx-arm64 cache
+        uses: actions/cache/restore@v4
+        with:
+          path: native-cache/osx-arm64
+          key: native-${{ github.run_id }}-osx-arm64
+          enableCrossOsArchive: true
+
+      - name: Restore win-x64 cache
+        uses: actions/cache/restore@v4
+        with:
+          path: native-cache/win-x64
+          key: native-${{ github.run_id }}-win-x64
+          enableCrossOsArchive: true
+
+      - name: Restore linux-x64 cache
+        uses: actions/cache/restore@v4
+        with:
+          path: native-cache/linux-x64
+          key: native-${{ github.run_id }}-linux-x64
+          enableCrossOsArchive: true
+
+      - name: Restore linux-arm64 cache
+        uses: actions/cache/restore@v4
+        with:
+          path: native-cache/linux-arm64
+          key: native-${{ github.run_id }}-linux-arm64
+          enableCrossOsArchive: true
+
+      - name: Build bundles
+        run: |
+          set -euo pipefail
+          root="native-cache"
+          wasm="$root/browser-wasm/itexoft-native.wasm"
+          dylib="$root/osx-arm64/itexoft-native.osx-arm64.dylib"
+          dll="$root/win-x64/itexoft-native.win-x64.dll"
+          so_x64="$root/linux-x64/itexoft-native.linux-x64.so"
+          so_arm64="$root/linux-arm64/itexoft-native.linux-arm64.so"
+          for f in "$wasm" "$dylib" "$dll" "$so_x64" "$so_arm64"; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Missing bundled file: $f"
+              exit 1
+            fi
+          done
+          mkdir -p "$BUNDLE_ROOT"
+          zip -j "$BUNDLE_ROOT/native-bundle.zip" "$wasm" "$dll" "$dylib" "$so_x64" "$so_arm64"
+
+      - name: Upload native bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-bundle
+          path: ${{ env.BUNDLE_ROOT }}/native-bundle.zip
+          if-no-files-found: error
+          retention-days: 3

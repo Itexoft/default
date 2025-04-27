@@ -1,0 +1,48 @@
+<Project>
+    <PropertyGroup>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <WarningLevel>10</WarningLevel>
+        <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    </PropertyGroup>
+    
+    <PropertyGroup>
+        <VersionFile>$(MSBuildThisFileDirectory)../VERSION</VersionFile>
+        <VersionFromFile Condition="Exists('$(VersionFile)')">$([System.IO.File]::ReadAllText('$(VersionFile)').Trim())</VersionFromFile>
+        <Version Condition="'$(VersionFromFile)' != ''">$(VersionFromFile)</Version>
+        <PackageVersion Condition="'$(VersionFromFile)' != ''">$(VersionFromFile)</PackageVersion>
+        <AssemblyVersion Condition="'$(VersionFromFile)' != ''">$(VersionFromFile)</AssemblyVersion>
+        <FileVersion Condition="'$(VersionFromFile)' != ''">$(VersionFromFile)</FileVersion>
+
+        <_RidPlatform Condition="'$(_Rid)' == '' and '$(_RidPlatform)' == '' and $([System.OperatingSystem]::IsWindows())">win</_RidPlatform>
+        <_RidPlatform Condition="'$(_Rid)' == '' and '$(_RidPlatform)' == '' and $([System.OperatingSystem]::IsMacOS())">osx</_RidPlatform>
+        <_RidPlatform Condition="'$(_Rid)' == '' and '$(_RidPlatform)' == '' and $([System.OperatingSystem]::IsLinux())">linux</_RidPlatform>
+        <_RidPlatform Condition="'$(_Rid)' == '' and '$(_RidPlatform)' == ''">neutral</_RidPlatform>
+
+        <_RidArch Condition="'$(_Rid)' == '' and '$(_RidArch)' == ''">$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant())</_RidArch>
+        <_Rid Condition="'$(_Rid)' == ''">$(_RidPlatform)-$(_RidArch)</_Rid>
+        <_Rid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</_Rid>
+        <_Rid Condition="'$(_Rid)' == ''">$(NETCoreSdkRuntimeIdentifier)</_Rid>
+        
+        <_ObjRoot>$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', 'obj', '$(MSBuildProjectName)-$(_Rid)'))</_ObjRoot>
+        <MSBuildProjectExtensionsPath>$(_ObjRoot)$([System.IO.Path]::DirectorySeparatorChar)</MSBuildProjectExtensionsPath>
+        <BaseIntermediateOutputPath>$(MSBuildProjectExtensionsPath)</BaseIntermediateOutputPath>
+        <RestoreOutputPath>$(MSBuildProjectExtensionsPath)</RestoreOutputPath>
+        <BaseOutputPath>$(MSBuildProjectExtensionsPath)</BaseOutputPath>
+        <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+        <DefaultItemExcludes>$(DefaultItemExcludes);bin/**;obj/**</DefaultItemExcludes>
+        <DefaultItemExcludesInProjectFolder>$(DefaultItemExcludesInProjectFolder);bin/**;obj/**</DefaultItemExcludesInProjectFolder>
+        <PublishRelease>true</PublishRelease>
+    </PropertyGroup>
+
+    <Target Name="FixBlazorWasmStaticWebAssetsEndpointsManifestPath"
+            AfterTargets="ResolveStaticWebAssetsConfiguration"
+            BeforeTargets="StaticWebAssetsPrepareForRun"
+            Condition="'$(UsingMicrosoftNETSdkBlazorWebAssembly)' == 'true'">
+        <PropertyGroup>
+            <StaticWebAssetDevelopmentManifestPath>$(IntermediateOutputPath)$(AssemblyName).staticwebassets.runtime.json</StaticWebAssetDevelopmentManifestPath>
+            <StaticWebAssetEndpointsBuildManifestPath>$(IntermediateOutputPath)$(AssemblyName).staticwebassets.endpoints.json</StaticWebAssetEndpointsBuildManifestPath>
+        </PropertyGroup>
+    </Target>
+
+</Project>

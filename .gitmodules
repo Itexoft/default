@@ -1,0 +1,4 @@
+[submodule "src/Private"]
+	path = src/Private
+	url = https://github.com/Itexoft/private.git
+	branch = master

@@ -1,0 +1,33 @@
+<Project>
+    <PropertyGroup>
+        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+        <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+        <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+        <EnableDefaultItems>true</EnableDefaultItems>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <LangVersion>14</LangVersion>
+        <PackageLicenseExpression>MPL-2.0-no-copyleft-exception</PackageLicenseExpression>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RepositoryType>git</RepositoryType>
+        <Authors>Denis Kudelin</Authors>
+        <Company>Itexoft</Company>
+        <Copyright>$(Authors)</Copyright>
+        <PublishDir>$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', 'bin', '$(MSBuildProjectName)-$(_Rid)-$(TargetFramework)-$(Configuration)-publish'))$([System.IO.Path]::DirectorySeparatorChar)</PublishDir>
+        <OutDir>$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', 'bin', '$(MSBuildProjectName)-$(_Rid)-$(TargetFramework)-$(Configuration)'))$([System.IO.Path]::DirectorySeparatorChar)</OutDir>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+        <OptimizationPreference>Speed</OptimizationPreference>
+        <DebugType>none</DebugType>
+        <DebugSymbols>false</DebugSymbols>
+        <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+        <IncludeSymbols>false</IncludeSymbols>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+        <DebugSymbols>true</DebugSymbols>
+        <DebugType>full</DebugType>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    </PropertyGroup>
+</Project>
